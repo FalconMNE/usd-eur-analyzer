@@ -1,0 +1,71 @@
+name: USD EUR daily analysis
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+  schedule:
+    # Every day at 17:37 UTC, after the usual ECB reference publication.
+    # This is a proposed default; edit it to change the schedule.
+    - cron: '37 17 * * *'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: usd-eur-daily
+  cancel-in-progress: false
+
+jobs:
+  analyze:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - name: Verify calculations and cloud integration
+        run: python -m unittest discover -s tests -v
+      - name: Build a fresh report or an explicit data-error page
+        run: python build_cloud.py
+      - name: Retain report for review
+        uses: actions/upload-artifact@v4
+        with:
+          name: usd-eur-report
+          path: |
+            public/index.html
+            public/report.json
+          retention-days: 7
+      - name: Configure Pages (opt in)
+        if: ${{ vars.ENABLE_PAGES == 'true' }}
+        uses: actions/configure-pages@v5
+      - name: Prepare the public site
+        if: ${{ vars.ENABLE_PAGES == 'true' }}
+        uses: actions/upload-pages-artifact@v4
+        with:
+          path: public
+      - name: Deploy Pages
+        if: ${{ vars.ENABLE_PAGES == 'true' }}
+        id: deploy
+        uses: actions/deploy-pages@v4
+      - name: Send private Telegram notification (opt in)
+        if: ${{ vars.ENABLE_TELEGRAM == 'true' }}
+        env:
+          ENABLE_TELEGRAM: 'true'
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          SITE_URL: ${{ steps.deploy.outputs.page_url }}
+        run: python notify_telegram.py
+      - name: Flag missing core data after publishing the error notice
+        if: ${{ !cancelled() }}
+        run: python build_cloud.py --check
