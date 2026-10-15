@@ -5,6 +5,7 @@ import json
 from pathlib import Path
 from fx_analyzer import atomic_text, collect, demo_report, fetch
 from fx_report import render_report
+from fx_calendar import collect_calendar, fetch_calendar
 
 
 def cloud_html(report):
@@ -24,13 +25,15 @@ function freshness(){
  document.getElementById('stale').style.display=stale?'block':'none';
  const cards=document.querySelector('.horizons');
  if(cards)cards.style.display=stale?'none':'';
+ const calendarNotice=document.getElementById('calendar-stale');
+ if(calendarNotice)calendarNotice.hidden=!stale;
 }
 freshness();setInterval(freshness,60000);
 </script>""")
     return html
 
 
-def build(output, getter=fetch, now=None, demo=False):
+def build(output, getter=fetch, now=None, demo=False, calendar_getter=fetch_calendar):
     now = now or datetime.now(timezone.utc)
     if demo:
         report = demo_report()
@@ -43,6 +46,10 @@ def build(output, getter=fetch, now=None, demo=False):
                       "unit":"EUR per 1 USD","generated_at":now.isoformat(),"status":"FAILED",
                       "issues":["Novi pregled nije završen. Nema važeće procjene smjera."],
                       "outlooks":[],"sources":[],"source_errors":{},"news":[],"rates":None,"inflation":None}
+    if demo:
+        report['calendar'] = {'status':'DEMO', 'checked_at':now.isoformat(), 'days':30, 'events':[], 'sources':[]}
+    else:
+        report['calendar'] = collect_calendar(now, getter=calendar_getter)
     output = Path(output)
     output.mkdir(parents=True, exist_ok=True)
     atomic_text(output/'index.html', cloud_html(report))

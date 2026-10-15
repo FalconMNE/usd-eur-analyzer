@@ -19,6 +19,12 @@ def report():
 
 
 class CloudTests(unittest.TestCase):
+    def setUp(self):
+        mocked=patch('build_cloud.collect_calendar',return_value={
+            'status':'UNAVAILABLE','checked_at':NOW.isoformat(),'days':30,'events':[],'sources':[]})
+        mocked.start()
+        self.addCleanup(mocked.stop)
+
     def test_report_is_mobile_and_has_no_pc_start_instructions(self):
         html=build_cloud.cloud_html(report())
         self.assertIn('max-width:760px',html)

@@ -1,14 +1,26 @@
-# Provjera paketa
+# Provjera nadogradnje 0.3.0
 
-Provjereno 2026-10-14T14:21:59.507617+00:00.
+Provjereno 15.10.2026. Osnova su postojeći fajlovi verzije 0.2.
+Prije izmjene su build_cloud.py, fx_report.py i notify_telegram.py upoređeni
+sa javnom granom main repozitorijuma FalconMNE/usd-eur-analyzer; sadržaj je isti.
 
-- 35 Python testova: svi prošli (27 postojećih i 8 za online prikaz i obavještenja).
-- Stvarno preuzimanje: svih sedam javnih izvora uspješno; status OK.
-- Kurs u probnom izvještaju datiran 2026-10-14.
-- JavaScript: svjež i zastario izvještaj, skrivanje starih procjena i kalkulator provjereni kroz Node VM.
-- Workflow YAML uspješno parsiran; objavljivanje i Telegram imaju zasebne opt-in varijable.
-- Osnovni Python model i njegova postojeća testiranja nisu mijenjani.
+- 51 Python test: svi prošli. Uključuju dosadašnjih 35 i 16 provjera kalendara.
+- ICS: ljetnje/zimsko vrijeme SAD i Evrope, UTC, datum bez satnice, prelomljeni
+  redovi, otkazani i promijenjeni događaji, nepodržana ponavljanja.
+- Nedostupan ili zastario izvor vidljiv je kao takav; ne postaje potvrda da
+  nema događaja. Prekid svih kalendara ne mijenja postojeći rezultat modela.
+- Stvarno javno učitavanje 2026-10-15T07:02:11.820005+00:00: svih sedam
+  osnovnih izvora i svih pet kalendara dostupno. Kalendar je vratio 15 odabranih
+  događaja za narednih 30 dana. Buduća dostupnost nije garantovana.
+- JavaScript provjeren kroz Node VM za America/Los_Angeles i Europe/Podgorica:
+  lokalizacija satnica, kalkulator, svjež izvještaj i upozorenje nakon 36 sati.
+- Novi Telegram tekst pregledan bez slanja poruke iz razvojnog okruženja.
+- fx_core.py, fx_analyzer.py i postojeći workflow nisu mijenjani. Kalendar
+  ne dodaje glasove u procjenu smjera i ne uvodi brokerske naloge.
 
-Nije izvršeno: GitHub-hosted pokretanje, GitHub/Firebase deploy, slanje stvarne Telegram poruke ni vizuelna provjera u mobilnom browseru.
-Nisu potvrđeni: prognostička tačnost ili profitabilnost.
-PREVIEW.html je datirani primjer, ne sajt koji se sam osvježava.
+Nije izvršeno: objava ove verzije na korisnikov GitHub, GitHub-hosted test ove
+nadogradnje ili slanje njenog novog Telegram teksta. Vizuelno renderovanje
+na telefonu nije potvrđeno: Chromium nije bio dostupan u razvojnom okruženju.
+Provjereni su generisani HTML i njegov JavaScript, ali ne mobilni screenshot.
+
+Ovo su provjere rada programa, ne potvrda prognostičke tačnosti modela.

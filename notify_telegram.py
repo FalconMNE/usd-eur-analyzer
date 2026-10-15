@@ -9,6 +9,7 @@ import re
 from urllib.parse import urlsplit
 from urllib.request import Request, build_opener, HTTPRedirectHandler
 from fx_report import LABELS, STATUS
+from fx_calendar import calendar_message
 
 
 def message(report, page_url='', now=None):
@@ -33,6 +34,7 @@ def message(report, page_url='', now=None):
             horizon = 'Sedmica' if item['horizon_reference_observations']==5 else 'Mjesec'
             lines.append(f"{horizon}: {LABELS.get(item['direction'],'Nema jasnog smjera')} ({item['score']:+d}/4)")
         lines.append(STATUS.get(report['status'],report['status']))
+        lines.extend(calendar_message(report.get('calendar'), now))
     lines.append('Procjena nije potvrđena prognoza ni nalog za trgovanje. Zbir nije vjerovatnoća.')
     if page_url:
         parsed = urlsplit(page_url)

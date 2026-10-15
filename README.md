@@ -1,11 +1,27 @@
 # USD/EUR — analiza bez uključenog PC-a
 
-Ovaj paket prenosi postojeći USD/EUR Analyzer 0.1.0 na GitHub Actions.
+Cloud verzija 0.3.0 dodaje kalendar postojećem USD/EUR analizatoru na GitHub Actions.
 Python i preuzimanje podataka rade na GitHub serveru; na telefonu otvaraš
 objavljeni izvještaj. Tvoj PC, Python na telefonu i TWS nisu potrebni.
 
 **Status paketa:** spreman za postavljanje. Nijedan repozitorijum, sajt,
 raspored ili Telegram kanal nije aktiviran samim preuzimanjem ovog ZIP-a.
+
+## Novo u verziji 0.3.0
+
+- Odabrane zakazane objave za narednih 30 dana: BLS, BEA, Eurostat, Fed i ECB.
+- Status svakog kalendara; nedostupan izvor ne znači da nema događaja.
+- Satnice koje izvor objavi prikazuju se u vremenskoj zoni uređaja.
+  Ako izvor objavi samo datum, ne izmišljamo satnicu niti mijenjamo taj datum.
+- Dnevna Telegram poruka uključuje do tri naredna događaja; poznate satnice
+  u poruci su izričito označene kao UTC. To nisu posebna upozorenja neposredno
+  prije objave. Raspored se osvježava kada se izvrši dnevna analiza.
+- Kurs je jasnije označen kao dnevna ECB referenca. Wise i TradingView nisu
+  povezani. Datum kursa ostaje odvojen od vremena izrade izvještaja.
+- Kalendar je dodatni kontekst i ne mijenja postojeće ocjene smjera.
+
+Ako projekat već radi, koristi paket za nadogradnju i njegovo uputstvo;
+nema potrebe ponavljati početno podešavanje Pages-a, tokena ili rasporeda.
 
 ## Predložena postavka
 
@@ -90,7 +106,7 @@ Zvuk i prikaz na zaključanom telefonu zavise od dozvola za Telegram.
 Token se ne upisuje u kod, HTML, README ili poruku ovdje. Program ne slijedi
 preusmjerenja i ne ispisuje URL greške, jer Telegram URL sadrži token.
 Slanje se ne ponavlja automatski pri nejasnom odgovoru kako se ne bi slale
-duple poruke. Poruke nisu testirane na stvarnom nalogu u ovom paketu.
+duple poruke. Novi format poruke u ovoj verziji provjeren je bez slanja.
 
 Isključenje: postavi `ENABLE_TELEGRAM=false`. Za zaustavljanje cijelog
 rasporeda otvori Actions i izaberi **Disable workflow**.
@@ -111,7 +127,8 @@ Firebase Hosting bez serverskih funkcija ima drugačije kvote i uslove.
 ## Model, greške i provjera
 
 Kurs: ECB; kamate: New York Fed EFFR i ECB €STR; inflacija: BLS i ECB HICP;
-naslovi: zvanični Fed i ECB RSS. Preračunava se **EUR za 1 USD**, tako da
+naslovi: zvanični Fed i ECB RSS; kalendari: BLS, BEA, Eurostat, Fed i ECB.
+Preračunava se **EUR za 1 USD**, tako da
 rast prikazanog kursa znači jačanje dolara. Detalji su u `MODEL.md`.
 
 Nedostaju li osnovni podaci, objavljuje se poruka bez važeće prognoze, a

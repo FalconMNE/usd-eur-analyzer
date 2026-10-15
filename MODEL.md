@@ -81,3 +81,41 @@ Dokumentacija izvora:
 - https://data.ecb.europa.eu/data/datasets/HICP/HICP.M.U2.N.000000.4D0.ANR
 - https://www.ecb.europa.eu/home/html/rss.en.html
 - https://www.federalreserve.gov/feeds/feeds.htm
+
+## Kalendar — Cloud 0.3.0
+
+Kalendar se ponovo preuzima pri svakoj izradi izvještaja. Prikazuje narednih
+30 dana, iz odabranih javnih rasporeda:
+
+- BLS: CPI, PPI, Employment Situation, JOLTS i Employment Cost Index.
+- BEA: nacionalni BDP i Personal Income and Outlays, koji uključuje PCE.
+- Eurostat: inflacija/HICP, BDP/zaposlenost i nezaposlenost.
+- Fed: završni dan redovnog sastanka FOMC, iz zvanične stranice.
+- ECB: završni dan sastanka o monetarnoj politici. Nemonetarni sastanci
+  i prvi dan dvodnevnog sastanka nisu ponovljeni kao zasebni događaji.
+
+To je raspored, ne analiza teksta, rezultat objave ili tržišni konsenzus.
+Kalendar ne učestvuje u zbiru −4 do +4. Nema novih glasova za PCE, BDP ili
+zaposlenost: ova verzija dodaje njihove datume objave, ne model njihovog uticaja.
+
+ICS vremenske zone se računaju uz ljetnje/zimsko vrijeme. Ako izvor navede
+samo datum, zapis ostaje bez satnice; ne pretpostavlja se uobičajeni sat.
+Datum-only događaj ostaje prikazan tokom tog datuma u zoni izvora. Na webu
+se precizna vremena prikazuju u zoni uređaja, a u Telegram poruci u UTC.
+
+Otkazani ICS događaji se izostavljaju, a novija verzija istog UID-a zamjenjuje
+stariju. Nepodržani ponavljajući događaji ili satnice označavaju djelimičan
+izvor. Ako izvor ne radi, ima neprepoznatljiv format ili raspored sadrži samo
+prošlost, prikazuje se status umjesto izmišljanja novih datuma. Izvještaj
+ne tvrdi da pokriva sve događaje, govore ili nenajavljene vijesti.
+
+Pošto su rasporedi promjenljivi, korisnik treba provjeriti izvor prije
+oslanjanja na termin. Nakon 36 sati web prikazuje upozorenje na stari raspored.
+Kod izvora sa HTML formatom promjena strukture može zahtijevati izmjenu parsera.
+
+Zvanični kalendari:
+- https://www.bls.gov/schedule/news_release/
+- https://www.bea.gov/news/schedule/icalendar
+- https://ec.europa.eu/eurostat/subscribe/ics.format
+- https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm
+- https://www.ecb.europa.eu/press/calendars/mgcgc/html/index.en.html

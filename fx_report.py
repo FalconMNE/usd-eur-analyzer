@@ -2,6 +2,7 @@ from html import escape
 import json
 import math
 from fx_core import conversion, safe_link
+from fx_calendar import calendar_html
 
 LABELS={"USD_UP_BIAS":"Prednost scenariju jačanja USD", "USD_DOWN_BIAS":"Prednost scenariju slabljenja USD",
         "UNCLEAR":"Nema jasnog smjera", "INSUFFICIENT_DATA":"Nedovoljno podataka"}
@@ -92,14 +93,18 @@ main{{max-width:1160px;padding:40px 28px 65px;margin:auto}}.eyebrow{{font-size:1
 table{{border-collapse:collapse;width:100%;font-size:14px}}th,td{{padding:10px 8px;text-align:left;border-bottom:1px solid var(--line)}}th{{font-size:12px;color:var(--muted)}}details{{border-top:1px solid var(--line);margin-top:18px;padding-top:14px}}summary{{cursor:pointer;color:#086f6d;font-size:14px;font-weight:650}}.scroll{{overflow-x:auto}}.news{{padding-left:22px}}.news li{{padding:10px 0}}.news small{{display:block;font-size:12px}}
 .fields{{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px}}label{{font-size:13px;font-weight:650}}input{{display:block;width:100%;border:1px solid #9bb6c2;border-radius:8px;padding:10px;font:inherit;font-size:18px;background:white;color:var(--ink);margin-top:6px}}input:focus{{outline:2px solid #50b5ac;outline-offset:2px}}#converted{{font-size:26px;color:var(--teal)}}#calc-error{{color:#8d3129}}footer{{font-size:13px;color:var(--muted);margin-top:25px}}
 @media(max-width:760px){{main{{padding:26px 15px}}h1{{font-size:34px}}.topmetrics{{grid-template-columns:1fr 1fr}}.box.primary{{grid-column:1/-1}}.horizons,.twocol{{grid-template-columns:1fr}}.panel,.box,.outlook{{padding:19px}}.fields{{grid-template-columns:1fr}}.outlook h2{{min-height:0}}.box strong{{font-size:28px}}.lead{{font-size:16px}}}}
+.calendar-list{{list-style:none;padding:0;margin:18px 0}}.calendar-event{{display:grid;grid-template-columns:190px 1fr;gap:16px;padding:16px 0;border-bottom:1px solid var(--line)}}.calendar-event small{{display:block;font-size:12px;overflow-wrap:anywhere}}.calendar-event a{{font-weight:650}}.event-date{{font-size:14px;font-weight:650}}.event-date small{{font-weight:400}}.reference-note{{font-size:14px;color:var(--muted);margin-top:-6px}}time{{overflow-wrap:anywhere}}[hidden]{{display:none!important}}
+@media(max-width:520px){{.calendar-event{{grid-template-columns:1fr;gap:5px}}}}
 </style></head><body><main><header><span class="eyebrow">{'DEMO · SVI PODACI SU IZMIŠLJENI' if demo else 'Dnevni pregled · zvanični javni izvori'}</span>
 <h1>Da li USD jača prema EUR?</h1><p class="lead">Procjena smjera prema trendu kursa i promjeni razlike kratkoročnih kamatnih stopa. Inflacija i objave centralnih banaka daju dodatni kontekst.</p>
-<div class="status"><strong>{e(STATUS.get(report.get('status'),report.get('status')))}</strong> · snimak napravljen {e(report['generated_at'])}
+<div class="status"><strong>{e(STATUS.get(report.get('status'),report.get('status')))}</strong> · izvještaj napravljen <time data-local-time="{e(report['generated_at'])}">{e(report['generated_at'])}</time>
 <br><small>Heuristička procjena. Zbir signala nije vjerovatnoća, a model nema potvrđenu prognostičku tačnost.</small>{problem_html}</div><div id="stale">Ovaj izvještaj je stariji od 36 sati. Pokreni <b>01_Analiza_USD_EUR.cmd</b> za novu procjenu.</div></header>
-<div class="topmetrics"><div class="box primary"><small>1 USD vrijedi — referentni kurs</small><strong>{num(spot,5,' EUR')}</strong><small>Datum kursa: {e(report.get('reference_date','—'))} · 1 EUR = {num(report.get('usd_per_eur'),4,' USD')}</small></div>
+<div class="topmetrics"><div class="box primary"><small>1 USD vrijedi — dnevna ECB referenca</small><strong>{num(spot,5,' EUR')}</strong><small>Datum kursa: {e(report.get('reference_date','—'))} · 1 EUR = {num(report.get('usd_per_eur'),4,' USD')}</small><small>Dnevni presjek · nije kurs uživo</small></div>
 <div class="box"><small>Promjena USD kroz 5 objava</small><strong>{num(report.get('change_5_observations_percent'),2,'%')}</strong><small>Ostvarena promjena, ne prognoza</small></div>
 <div class="box"><small>Promjena USD kroz 20 objava</small><strong>{num(report.get('change_20_observations_percent'),2,'%')}</strong><small>Ostvarena promjena, ne prognoza</small></div></div>
+<p class="reference-note">Vrijeme izrade izvještaja i datum kursa nisu isto. Za konverziju koristi konačnu Wise ponudu sa naknadom; Wise i TradingView nisu povezani sa ovim prikazom.</p>
 <div class="horizons">{''.join(horizons)}</div>{policy}
+{calendar_html(report.get('calendar'))}
 <section class="panel"><h2>Kretanje dolara izraženo u eurima</h2><p class="muted">Rast linije = jači USD: za isti broj dolara dobijaš više eura. ECB izvor daje EUR/USD; ovdje je svaka vrijednost pravilno obrnuta.</p>{chart_svg(report.get('chart',[]))}<p class="muted">Dnevne referentne vrijednosti nisu žive bid/ask ponude. Ovaj alat služi za dnevnu analizu i planiranje konverzije.</p></section>
 <div class="twocol"><section class="panel"><h3>Kamatni kontekst — uporedivi datum</h3><div class="stats"><div><small>SAD · efektivna stopa EFFR</small><strong>{num(rates.get('effr_percent'),3,'%')}</strong></div><div><small>Eurozona · stopa €STR</small><strong>{num(rates.get('estr_percent'),3,'%')}</strong></div></div>
 <p>Datum: {e(rates.get('date','—'))}. Razlika SAD − eurozona: <b>{num(rates.get('spread_pp'),3,' p.p.')}</b>.</p><p>Promjena razlike kroz 20 zajedničkih objava: <b>{num(rates.get('spread_change_20_observations_pp'),3,' p.p.')}</b>.</p>
@@ -114,9 +119,16 @@ table{{border-collapse:collapse;width:100%;font-size:14px}}th,td{{padding:10px 8
 <p>ECB EXR: dnevni USD za 1 EUR, obrnuto u EUR za 1 USD. EFFR i €STR: noćne kamatne stope u procentima, poređene samo na istim datumima. BLS: godišnja CPI promjena iz istog mjeseca prethodne godine. Eurozona: nova HICP serija, uvedena 2026.</p>
 <p>Svaki horizont ima 3 tehnička glasa i 1 glas za promjenu kamatne razlike. Slabe promjene unutar praga nose nulu. Detaljni pragovi su u report.json i README.md. Inflacija i naslovi ostaju dodatni kontekst. Parametri nisu optimizovani niti testirani kao profitabilna strategija.</p>
 <p>Podaci su dnevni/mjesečni, a objave mogu promijeniti sliku. Nema tržišnog konsenzusa, terminskih kamatnih očekivanja, pune analize geopolitičkih vijesti ili kalendara svih budućih događaja.</p></details></section>
-<footer>USD/EUR Analyzer 0.1.0 · ANALYSIS_ONLY · Nema veze sa brokerskim računom i nema slanja naloga. Nova analiza se pokreće ručno. Promjena iznosa u kalkulatoru ne osvježava kurs.</footer>
+<footer>USD/EUR Analyzer Cloud 0.3.0 · ANALYSIS_ONLY · Nema veze sa brokerskim računom i nema slanja naloga. Nova analiza se pokreće ručno. Promjena iznosa u kalkulatoru ne osvježava kurs.</footer>
 </main><script>
 const data={config};
+try{{
+ const zone=Intl.DateTimeFormat().resolvedOptions().timeZone;
+ const format=new Intl.DateTimeFormat('sr-Latn',{{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit',timeZoneName:'short',hour12:false}});
+ document.querySelectorAll('[data-local-time]').forEach(el=>{{const value=new Date(el.dataset.localTime);if(Number.isFinite(value.getTime())){{el.textContent=format.format(value);el.title=el.dataset.localTime;}}}});
+ const note=document.getElementById('calendar-zone');
+ if(note)note.textContent='Poznate satnice: vrijeme tvog uređaja ('+zone+'). Datum bez satnice ostaje datum zvaničnog izvora.';
+}}catch(error){{/* UTC text remains available when localization is unsupported. */}}
 function convert(amount,rate,costPercent,fee,move=0){{return amount*rate*(1+move/100)*(1-costPercent/100)-fee;}}
 function update(){{
  const amount=Number(document.getElementById('amount').value),cost=Number(document.getElementById('cost').value),fee=Number(document.getElementById('fee').value);
