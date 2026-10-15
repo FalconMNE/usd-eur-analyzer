@@ -5,9 +5,10 @@ on:
   push:
     branches: [main]
   schedule:
-    # Every day at 17:37 UTC, after the usual ECB reference publication.
-    # This is a proposed default; edit it to change the schedule.
-    - cron: '37 17 * * *'
+    # Monday-Friday at 16:07 in Montenegro; daylight saving is automatic.
+    # GitHub may start late, and the ECB reference date remains authoritative.
+    - cron: '7 16 * * 1-5'
+      timezone: 'Europe/Podgorica'
 
 permissions:
   contents: read
