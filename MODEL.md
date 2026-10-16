@@ -1,4 +1,7 @@
-# Metodologija USD/EUR Analyzer 0.1.0
+# Metodologija USD/EUR Analyzer Cloud 0.4.0
+
+Osnovni model kursa i kamata ostaje verzija 0.1.0. Novi sloj vijesti koristi
+metod `explicit_text_rules_v1`; nije treniran niti statistički kalibrisan.
 
 ## Šta znače rezultati
 
@@ -26,7 +29,9 @@ se povezuje sa brokerskim računom.
 - **ECB €STR**: noćna kamatna stopa eurozone; poređenje sa EFFR je na istim datumima.
 - **BLS CPI-U**: američki indeks cijena, iz kojeg se računa godišnja inflacija.
 - **ECB/Eurostat HICP**: godišnja inflacija eurozone, nova HICP serija od 2026.
-- **Fed i ECB RSS**: naslovi novijih zvaničnih objava i linkovi za čitanje.
+- **Fed i ECB RSS**: novije zvanične objave, njihov raspoloživi RSS tekst i linkovi.
+- **IBKR Traders' Insight**: javni RSS sa komentarima različitih autora;
+  nije privatni izvor vijesti sa brokerskog računa. Komentar nije potvrda činjenice.
 
 ECB kurs je dnevna referentna vrijednost, ne živa ponuda za konverziju ili
 trgovanje. ECB ga objavljuje informativno. Stvarni bankarski/brokerski kurs
@@ -37,9 +42,10 @@ danima. CPI i HICP imaju različite korpe. HICP oznaka E znači procijenjena
 vrijednost. Inflacija je dodatni kontekst; veća inflacija ne daje automatski
 glas za jačanje ili slabljenje valute.
 
-RSS dio prikazuje naslove i označava novije naslove povezane sa monetarnom
-politikom. Ne analizira kompletne članke, ne provjerava tržišni konsenzus
-i ne pokušava da svaki govor prevede u kupovni/prodajni signal.
+RSS dio prikazuje naslov, izvor, autora kada postoji i datum. Provjerava
+tekst dostavljen u RSS-u: sadržaj članka kada postoji, inače sažetak ili
+samo naslov. Ne otvara automatski pune stranice članaka, ne provjerava
+nezavisno tržišni konsenzus i ne daje naloge za trgovanje.
 
 ## Detalji i ograničenja modela
 
@@ -58,8 +64,9 @@ objava: više od +0.10 procentnih poena daje +1, manje od −0.10 daje −1,
 ostalo nulu. Viša postojeća američka kamata sama po sebi ne daje glas.
 Kamatni nivo može već biti uračunat u kurs; ovaj jednostavan odnos nije zakon.
 
-Zbir najmanje +3 daje prednost jačanju USD; najviše −3 daje prednost
-slabljenju. Ostali rezultati su neodređeni. Horizonti su približni: računaju
+Osnovni zbir najmanje +3 daje prednost jačanju USD; najviše −3 daje prednost
+slabljenju. Ostali osnovni rezultati su neodređeni. Sloj vijesti opisan ispod
+može ublažiti jasan zaključak u neodređen. Horizonti su približni: računaju
 se naredne ECB dnevne objave, ne fiksan broj kalendarskih dana.
 
 Potrebno je najmanje 60 kursnih podataka, posljednji ne stariji od 5 kalendarskih
@@ -94,9 +101,9 @@ Kalendar se ponovo preuzima pri svakoj izradi izvještaja. Prikazuje narednih
 - ECB: završni dan sastanka o monetarnoj politici. Nemonetarni sastanci
   i prvi dan dvodnevnog sastanka nisu ponovljeni kao zasebni događaji.
 
-To je raspored, ne analiza teksta, rezultat objave ili tržišni konsenzus.
-Kalendar ne učestvuje u zbiru −4 do +4. Nema novih glasova za PCE, BDP ili
-zaposlenost: ova verzija dodaje njihove datume objave, ne model njihovog uticaja.
+To je raspored, ne rezultat objave ili tržišni konsenzus. Sam datum događaja
+ne učestvuje u zbiru −4 do +4 niti određuje smjer. Tekst vijesti o već
+objavljenom podatku zasebno prolazi kroz pravila opisana ispod.
 
 ICS vremenske zone se računaju uz ljetnje/zimsko vrijeme. Ako izvor navede
 samo datum, zapis ostaje bez satnice; ne pretpostavlja se uobičajeni sat.
@@ -119,3 +126,85 @@ Zvanični kalendari:
 - https://ec.europa.eu/eurostat/subscribe/ics.format
 - https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm
 - https://www.ecb.europa.eu/press/calendars/mgcgc/html/index.en.html
+
+## Rezervni BLS raspored — Cloud 0.4.0
+
+Glavni izvor ostaje BLS ICS. Privremeni HTTP problemi (408, 429, odabrani
+5xx) ili mrežni prekid imaju najviše jedan ponovni pokušaj. Odbijeni pristup
+se ne zaobilazi. Ako glavni izvor ne radi, ima preskočene zapise ili samo
+prošle događaje, pokušavaju se zvanične List View stranice za sve mjesece
+koje obuhvata prozor od 30 dana:
+
+`https://www.bls.gov/schedule/GODINA/MJESEC_sched_list.htm`
+
+Parser zahtijeva prepoznatljivu tabelu, datume traženog mjeseca i potvrdu
+da je satnica Eastern Time. Računa America/New_York sa DST pravilima.
+Nedostajući mjesec ili neprepoznata satnica označava djelimičan izvor.
+Ako ni rezerva ne radi, dostupni zapisi i njihova upozorenja ostaju vidljivi;
+nema kopiranja prošlogodišnjih datuma. Promjena strukture izvora i dalje
+može zahtijevati popravku parsera. Prvobitni povremeni prekid nije reprodukovan;
+rezervni izvor smanjuje zavisnost od jednog formata, ne garantuje dostupnost.
+
+## Kako vijesti utiču na zaključak
+
+1. Prihvataju se HTTPS linkovi poznatih izdavača, valjan datum sa vremenskom
+   zonom i najviše 30 dana starosti. Budući datumi se preskaču. Po izvještaju
+   se zadržava najviše 12 IBKR i po 8 Fed/ECB stavki iz dostupnog RSS-a.
+2. Na tumačenje smjera utiču samo objave stare do **72 sata** u trenutku izrade.
+   To je starost objave, ne pouzdano utvrđena starost svakog događaja u tekstu.
+3. Engleski tekst se provjerava ograničenim, eksplicitnim pravilima:
+   opisano povećanje/smanjenje referentne kamate; opisano pomjeranje izgleda
+   za Fed/ECB povećanja/smanjenja; ili podatak o inflaciji, zaposlenosti ili
+   aktivnosti izričito iznad/ispod očekivanja. Samo „inflacija raste” nije dovoljno.
+4. Pravila pretpostavljaju uslovni kanal očekivanja kamata: jači američki
+   podatak može podržati USD, jači podatak eurozone može podržati EUR.
+   Za nezaposlenost/zahtjeve za naknadu znak se obrće. To nije ekonomski zakon.
+   Očekivana odluka može već biti ugrađena u kurs, pa ni stvarna promjena
+   kamate sama po sebi ne dokazuje budući smjer.
+5. Preskaču se prepoznate negacije, uslovne/buduće rečenice i određena
+   istorijska poređenja, nejasna kombinacija više pokazatelja i poređenja
+   drugih ekonomija. Predikciona tržišta i obrazovne kategorije se izostavljaju.
+   Filtri nisu potpuni: složena rečenica, navod ili nova formulacija mogu
+   biti propušteni ili pogrešno protumačeni.
+6. Tekstovi se grupišu po ekonomiji i oblasti. CPI i PPI zato mogu završiti
+   u istoj oblasti inflacije; ovo nije precizno povezivanje jedinstvenih događaja.
+   Broj članaka ne pojačava glas. Jedan prepoznati suprotan kanal daje
+   „Suprotni uticaji u vijestima”; ne koristi se većinsko glasanje.
+7. Ako je osnovni signal jasan, a vijesti imaju suprotan ili miješan uticaj,
+   završni smjer je **Nema jasnog smjera**. Saglasne vijesti ne pojačavaju
+   osnovni skor i ne pretvaraju neodređen osnovni signal u jasan. Bez
+   prepoznatog smjera zadržava se osnovna procjena uz status pokrivenosti.
+
+U JSON-u `outlooks` čuva osnovni model, `news_context` tumačenje vijesti,
+a `combined_outlooks` završni smjer koji web i Telegram prikazuju. Osnovni
+skor ostaje −4 do +4, zbog čega se, npr., +3 može prikazati uz neodređen
+završni zaključak i objašnjenje neslaganja. Ni taj skor ni novinski kontekst
+nisu vjerovatnoća. Za sedmicu i mjesec koristi se ista provjera vijesti;
+različito trajanje njihovih efekata nije procijenjeno.
+
+Geopolitički/kreditni rizik je upozorenje, bez automatskog znaka za USD.
+Nedostupan feed je vidljiv; odsustvo prepoznatog signala ne znači odsustvo
+važnih vijesti. Broj komentara nije nepristrasan uzorak tržišta. Dnevni RSS
+presjek može propustiti članke objavljene između pokretanja. Ne obrađuju
+se svi govori, vijesti ili revizije podataka. Nema plaćenog konsenzus feeda.
+
+Tijela članaka služe samo za obradu u memoriji. Izvještaj čuva naslove,
+linkove, atribuciju, datume i unaprijed definisana objašnjenja pravila,
+bez ponovnog objavljivanja članaka. Ne koriste se privatni IBKR/GFIS podaci.
+
+**Nije dokazano da ova dopuna poboljšava prognozu.** Za validaciju treba
+sačuvati vremenski označene originalne procjene i porediti osnovni i
+završni smjer sa stvarnim promjenama nakon 5 i 20 narednih ECB objava,
+na dovoljno dugom novom uzorku, uključujući broj propuštenih procjena.
+Naknadno testiranje na izmijenjenim člancima može unijeti informacije iz budućnosti.
+Takva evaluacija nije urađena u ovoj verziji. Testovi provjeravaju rad koda.
+
+Javni izvor komentara:
+- https://www.interactivebrokers.com/campus/traders-insight/?feed=news
+
+Ekonomski kontekst (ne validacija naših pravila):
+- https://www.federalreserve.gov/econres/notes/feds-notes/monetary-policy-and-exchange-rates-during-the-global-tightening-20240510.html
+
+Navedena Fed studija razmatra očekivanja kamata i sklonost riziku i pokazuje
+da sama razlika kamata ograničeno objašnjava kurs. Naš parser ne reprodukuje
+njen model, podatke ili utvrđenu statistiku.

@@ -1,13 +1,37 @@
 # USD/EUR — analiza bez uključenog PC-a
 
-Cloud verzija 0.3.0 dodaje kalendar postojećem USD/EUR analizatoru na GitHub Actions.
+Cloud verzija 0.4.0 dodaje provjeru teksta vijesti i rezervni BLS kalendar
+postojećem USD/EUR analizatoru na GitHub Actions.
 Python i preuzimanje podataka rade na GitHub serveru; na telefonu otvaraš
 objavljeni izvještaj. Tvoj PC, Python na telefonu i TWS nisu potrebni.
 
 **Status paketa:** spreman za postavljanje. Nijedan repozitorijum, sajt,
 raspored ili Telegram kanal nije aktiviran samim preuzimanjem ovog ZIP-a.
 
-## Novo u verziji 0.3.0
+## Novo u verziji 0.4.0
+
+- Javni IBKR Traders' Insight RSS, uz postojeće Fed i ECB objave. Nema
+  veze sa TWS-om, brokerskim računom, plaćenim vijestima ili IBKR API-jem.
+- Provjera raspoloživog teksta iz posljednja 72 sata: odluke o kamatama,
+  opisane promjene očekivanja i izričita poređenja ekonomskih podataka
+  sa očekivanjima. To su ograničena pravila za engleski tekst, ne AI servis.
+- Odvojeni su zvanično saopštenje, tržišni komentar i procjena iz teksta.
+  Naslov, autor kada postoji, datum i link ostaju vidljivi. Tijelo članka
+  obrađuje se u memoriji i ne objavljuje se u izvještaju.
+- Ako prepoznati uticaji proturječe jasnom osnovnom smjeru, završni zaključak
+  postaje „Nema jasnog smjera”. Saglasnost ne povećava skor. Broj ponovljenih
+  članaka ne dodaje glasove. Web i Telegram prikazuju isti završni zaključak.
+- Ako BLS ICS ne radi ili je neupotrebljiv, pokušavaju se zvanični mjesečni
+  rasporedi. Nedostajući mjesec ili zapis ostaje označen kao djelimičan izvor.
+- Nema novih pretplata, API ključeva ili naplate za servis analize vijesti.
+  Postojeće postavke GitHub-a i Telegram-a koriste se kao ranije.
+
+**Veća tačnost još nije potvrđena.** Ova verzija proširuje kontekst i pokazuje
+neslaganja. Pravila mogu propustiti vijest ili pogrešno protumačiti tekst.
+Za tvrdnju o većoj tačnosti potrebno je poređenje sa budućim ishodima;
+prolazak testova programa to ne dokazuje. Detalji i granice su u `MODEL.md`.
+
+## Postojeće funkcije kalendara
 
 - Odabrane zakazane objave za narednih 30 dana: BLS, BEA, Eurostat, Fed i ECB.
 - Status svakog kalendara; nedostupan izvor ne znači da nema događaja.
@@ -25,9 +49,11 @@ nema potrebe ponavljati početno podešavanje Pages-a, tokena ili rasporeda.
 
 ## Predložena postavka
 
-- **GitHub Actions** pokreće analizu jednom dnevno, predloženo u **17:37 UTC**.
-  To je 10:37 u zoni UTC−7; u Crnoj Gori 19:37 ljeti i 18:37 zimi.
-  Vrijeme se mijenja u `.github/workflows/daily-analysis.yml`.
+- **GitHub Actions** je podešen za radne dane u **16:07 Europe/Podgorica**.
+  Koristi `cron: '7 16 * * 1-5'` i `timezone: 'Europe/Podgorica'` u
+  `.github/workflows/daily-analysis.yml`. Zona prati ljetnje/zimsko vrijeme.
+  Ova nadogradnja ne mijenja taj fajl. Predviđeno vrijeme nije potvrda
+  da je pojedinačno zakazano pokretanje zaista izvršeno: to se vidi u Actions.
 - **GitHub Pages** prikazuje posljednji izvještaj na telefonu, uz datum kursa
   i datum obrade. Objavu uključuješ posebno.
 - **Telegram** može dostaviti privatnu poruku s kursom, procjenom sedmice i
@@ -127,14 +153,15 @@ Firebase Hosting bez serverskih funkcija ima drugačije kvote i uslove.
 ## Model, greške i provjera
 
 Kurs: ECB; kamate: New York Fed EFFR i ECB €STR; inflacija: BLS i ECB HICP;
-naslovi: zvanični Fed i ECB RSS; kalendari: BLS, BEA, Eurostat, Fed i ECB.
+tekstovi vijesti: javni Fed, ECB i IBKR Traders' Insight RSS;
+kalendari: BLS, BEA, Eurostat, Fed i ECB.
 Preračunava se **EUR za 1 USD**, tako da
 rast prikazanog kursa znači jačanje dolara. Detalji su u `MODEL.md`.
 
 Nedostaju li osnovni podaci, objavljuje se poruka bez važeće prognoze, a
 workflow na kraju označava grešku. Ako GitHub ne uspije objaviti ni tu stranicu,
 prethodni snimak ostaje: nakon 36 sati prikazuje upozorenje i skriva kartice
-procjene smjera. Referentni podaci i njihovi datumi ostaju vidljivi.
+procjene smjera i panel tumačenja vijesti. Referentni podaci i njihovi datumi ostaju vidljivi.
 Osvježavanje browsera učitava snimak; ne pokreće novu analizu.
 
 Lokalne komande za razvoj (nisu potrebne za svakodnevnu upotrebu telefonom):

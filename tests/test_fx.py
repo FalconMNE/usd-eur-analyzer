@@ -191,7 +191,7 @@ class DeliveryTests(unittest.TestCase):
             self.assertEqual('INSUFFICIENT_DATA',signal['status'])
             self.assertEqual([],signal['outlooks'])
             self.assertEqual('PUBLIC_DATA',signal['source_mode'])
-            self.assertEqual(7,len(report['sources']))
+            self.assertEqual(8,len(report['sources']))
 
     def test_interrupt_invalidates_prior_result(self):
         with tempfile.TemporaryDirectory() as tmp:

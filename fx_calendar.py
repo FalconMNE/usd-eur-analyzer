@@ -3,6 +3,8 @@ from concurrent.futures import ThreadPoolExecutor
 from datetime import date, datetime, timedelta, timezone
 from html import escape, unescape
 import re
+import time
+from urllib.error import HTTPError, URLError
 from urllib.parse import urlsplit
 from urllib.request import Request, build_opener, HTTPRedirectHandler
 from zoneinfo import ZoneInfo
@@ -56,10 +58,21 @@ class CalendarRedirect(HTTPRedirectHandler):
 def fetch_calendar(url):
     if not safe_url(url):
         raise CalendarError('Unexpected calendar source')
-    request = Request(url, headers={'User-Agent': 'USD-EUR-Research/0.3 (public economic calendar)',
+    request = Request(url, headers={'User-Agent': 'USD-EUR-Research/0.4 (public economic calendar)',
                                     'Accept-Language': 'en', 'Accept-Encoding': 'identity'})
-    with build_opener(CalendarRedirect()).open(request, timeout=20) as response:
-        body = response.read(4_000_001)
+    for attempt in range(2):
+        try:
+            with build_opener(CalendarRedirect()).open(request, timeout=20) as response:
+                body = response.read(4_000_001)
+            break
+        except HTTPError as exc:
+            if attempt or exc.code not in {408, 429, 500, 502, 503, 504}:
+                raise
+            time.sleep(1)
+        except (TimeoutError, URLError):
+            if attempt:
+                raise
+            time.sleep(1)
     if len(body) > 4_000_000:
         raise CalendarError('Calendar response too large')
     return body
@@ -163,6 +176,72 @@ def parse_ics(body, source):
     return events, skipped
 
 
+def parse_bls_month(body, year, month):
+    """The BLS public List View is a fallback, never a fabricated calendar."""
+    text = body.decode('utf-8-sig')
+    table = re.search(r'<table\b[^>]*class=[\"\'][^\"\']*\brelease-list\b[^\"\']*[\"\'][^>]*>(.*?)</table>', text, re.S | re.I)
+    if not table or not re.search(r'all times.*?Eastern Time', clean(text), re.I):
+        raise CalendarError('BLS monthly list or time zone not recognized')
+    rows = re.findall(r'<tr\b[^>]*>(.*?)</tr>', table[1], re.S | re.I)
+    events, skipped, dated_rows = [], 0, 0
+    for row in rows:
+        cells = re.findall(r'<td\b[^>]*>(.*?)</td>', row, re.S | re.I)
+        if len(cells) != 3:
+            if cells:
+                skipped += 1
+            continue
+        title_match = re.search(r'<strong\b[^>]*>(.*?)</strong>', cells[2], re.S | re.I)
+        title = clean(title_match[1]) if title_match else clean(cells[2]).split(' for ')[0]
+        try:
+            day = datetime.strptime(clean(cells[0]), '%A, %B %d, %Y').date()
+            if (day.year, day.month) != (year, month):
+                raise CalendarError('Monthly page returned a different month')
+            dated_rows += 1
+        except ValueError:
+            skipped += 1
+            continue
+        if not topic('BLS', title):
+            continue
+        clock = clean(cells[1])
+        if not clock:
+            timing = {'date': day.isoformat(), 'at_utc': None}
+        else:
+            try:
+                local = datetime.strptime(day.isoformat()+' '+clock, '%Y-%m-%d %I:%M %p')
+                timing = parse_start(local.strftime('%Y%m%dT%H%M%S'), {'TZID':'America/New_York'})
+            except ValueError:
+                skipped += 1
+                continue
+        item = event('BLS', title, timing)
+        item['url'] = f'https://www.bls.gov/schedule/{year}/{month:02d}_sched_list.htm'
+        events.append(item)
+    if not dated_rows:
+        raise CalendarError('No recognizable dated rows in BLS monthly list')
+    return events, skipped
+
+
+def bls_fallback(now, end, getter):
+    zone = ZoneInfo(SOURCES['BLS']['zone'])
+    first, last = now.astimezone(zone).date(), end.astimezone(zone).date()
+    year, month = first.year, first.month
+    entries, skipped, urls, failures = [], 0, [], []
+    while (year, month) <= (last.year, last.month):
+        url = f'https://www.bls.gov/schedule/{year}/{month:02d}_sched_list.htm'
+        try:
+            rows, dropped = parse_bls_month(getter(url), year, month)
+            entries.extend(rows)
+            skipped += dropped
+            urls.append(url)
+        except Exception:
+            failures.append(url)
+        year, month = (year + 1, 1) if month == 12 else (year, month + 1)
+    if not urls:
+        raise CalendarError('BLS feed and monthly lists unavailable')
+    return entries, skipped, {'method':'monthly_html', 'fallback_used':True,
+                             'loaded_urls':urls, 'unavailable_urls':failures,
+                             'coverage_end':last.isoformat()}
+
+
 def parse_fed(body, now):
     text = body.decode('utf-8')
     headings = list(re.finditer(r'<h4\b[^>]*>\s*(?:<a\b[^>]*>)?(20\d\d) FOMC Meetings', text, re.I))
@@ -219,20 +298,37 @@ def collect_calendar(now, getter=fetch_calendar, days=30):
     def read(source):
         spec = SOURCES[source]
         meta = {'source': source, 'url': spec['page'], 'feed_url': spec['feed'],
-                'retrieved_at': now.isoformat(), 'status': 'UNAVAILABLE', 'events': 0}
+                'retrieved_at': now.isoformat(), 'status': 'UNAVAILABLE', 'events': 0,
+                'fallback_used':False, 'method':spec['format']}
         try:
-            body = getter(spec['feed'])
-            if spec['format'] == 'ics':
-                entries, skipped = parse_ics(body, source)
-            elif source == 'Fed':
-                entries, skipped = parse_fed(body, now)
-            else:
-                entries, skipped = parse_ecb(body)
-            latest = max(e['date'] for e in entries)
             local_today = now.astimezone(ZoneInfo(spec['zone'])).date().isoformat()
-            meta.update(status='PARTIAL' if skipped else 'OK', latest_scheduled_date=latest,
+            entries, skipped = None, 0
+            try:
+                body = getter(spec['feed'])
+                if spec['format'] == 'ics':
+                    entries, skipped = parse_ics(body, source)
+                elif source == 'Fed':
+                    entries, skipped = parse_fed(body, now)
+                else:
+                    entries, skipped = parse_ecb(body)
+                if source == 'BLS' and (skipped or max(e['date'] for e in entries) < local_today):
+                    raise CalendarError('BLS feed needs current monthly confirmation')
+            except Exception:
+                if source != 'BLS':
+                    raise
+                try:
+                    replacement, dropped, detail = bls_fallback(now, end, getter)
+                    entries, skipped = replacement, dropped
+                    meta.update(detail)
+                except Exception:
+                    if entries is None:
+                        raise
+                    meta['fallback_unavailable'] = True
+            latest = max((e['date'] for e in entries), default=None)
+            partial = skipped or meta.get('unavailable_urls')
+            meta.update(status='PARTIAL' if partial else 'OK', latest_scheduled_date=latest,
                         skipped_events=skipped)
-            if latest < local_today:
+            if latest and latest < local_today and not meta['fallback_used']:
                 meta['status'] = 'OUTDATED'
             selected = []
             for item in entries:
@@ -246,7 +342,10 @@ def collect_calendar(now, getter=fetch_calendar, days=30):
                     selected.append(item)
             meta['events'] = len(selected)
             return selected, meta
-        except Exception:
+        except Exception as exc:
+            meta['error_type'] = type(exc).__name__
+            if isinstance(exc, HTTPError):
+                meta['http_status'] = exc.code
             meta['message'] = 'Izvor nije učitan ili format nije prepoznat. Otvori zvanični kalendar.'
             return [], meta
 
@@ -287,6 +386,8 @@ def calendar_html(calendar):
         if name not in SOURCES:
             continue
         detail = f' · preskočeni zapisi: {source.get("skipped_events", 0)}' if source['status'] == 'PARTIAL' else ''
+        if source.get('fallback_used'):
+            detail += ' · rezervni zvanični mjesečni raspored'
         meta.append(f'<li><a href="{esc(SOURCES[name]["page"])}" target="_blank" rel="noopener">{esc(name)}</a>: {esc(LABELS.get(source["status"], source["status"]))}{detail}</li>')
     empty = '<p>U učitanim rasporedima nema odabranih budućih objava u ovom periodu. To ne isključuje druge ili nenajavljene događaje.</p>'
     if status == 'UNAVAILABLE':

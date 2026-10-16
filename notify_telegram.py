@@ -10,6 +10,7 @@ from urllib.parse import urlsplit
 from urllib.request import Request, build_opener, HTTPRedirectHandler
 from fx_report import LABELS, STATUS
 from fx_calendar import calendar_message
+from fx_news import news_message
 
 
 def message(report, page_url='', now=None):
@@ -30,10 +31,15 @@ def message(report, page_url='', now=None):
         if not isinstance(rate,(int,float)) or not math.isfinite(rate) or rate <= 0:
             raise ValueError('Invalid report rate')
         lines.append(f"1 USD = {rate:.5f} EUR (ECB referenca {report.get('reference_date','—')})")
+        combined = {r['horizon_reference_observations']:r for r in report.get('combined_outlooks',[])}
         for item in report.get('outlooks',[]):
             horizon = 'Sedmica' if item['horizon_reference_observations']==5 else 'Mjesec'
-            lines.append(f"{horizon}: {LABELS.get(item['direction'],'Nema jasnog smjera')} ({item['score']:+d}/4)")
+            conclusion = combined.get(item['horizon_reference_observations'],item)
+            lines.append(f"{horizon}: {LABELS.get(conclusion['direction'],'Nema jasnog smjera')} (osnovni skor {item['score']:+d}/4)")
+            if conclusion.get('reason')=='NEWS_CONFLICT':
+                lines.append('Osnovni signal i prepoznati uticaji vijesti nisu saglasni.')
         lines.append(STATUS.get(report['status'],report['status']))
+        lines.extend(news_message(report.get('news_context')))
         lines.extend(calendar_message(report.get('calendar'), now))
     lines.append('Procjena nije potvrđena prognoza ni nalog za trgovanje. Zbir nije vjerovatnoća.')
     if page_url:

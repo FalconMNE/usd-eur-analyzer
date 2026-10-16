@@ -25,6 +25,8 @@ function freshness(){
  document.getElementById('stale').style.display=stale?'block':'none';
  const cards=document.querySelector('.horizons');
  if(cards)cards.style.display=stale?'none':'';
+ const newsAnalysis=document.getElementById('news-analysis');
+ if(newsAnalysis)newsAnalysis.hidden=stale;
  const calendarNotice=document.getElementById('calendar-stale');
  if(calendarNotice)calendarNotice.hidden=!stale;
 }

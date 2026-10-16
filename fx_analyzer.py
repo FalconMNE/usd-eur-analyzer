@@ -17,6 +17,7 @@ import webbrowser
 from fx_core import (DataError, analyze, inflation_context, parse_cpi, parse_ecb,
                      parse_effr, parse_news, rates_context)
 from fx_report import render_report
+from fx_news import IBKR_FEED, IBKR_PUBLISHER, assess_news, combine_outlooks
 
 ROOT = Path(__file__).resolve().parent
 ENDPOINTS = {
@@ -27,8 +28,9 @@ ENDPOINTS = {
     "cpi": "https://api.bls.gov/publicAPI/v2/timeseries/data/CUUR0000SA0",
     "fed_news": "https://www.federalreserve.gov/feeds/press_monetary.xml",
     "ecb_news": "https://www.ecb.europa.eu/rss/press.html",
+    "ibkr_news": IBKR_FEED,
 }
-ALLOWED_HOSTS = {urlsplit(url).hostname for url in ENDPOINTS.values()}
+ALLOWED_HOSTS = {urlsplit(url).hostname for url in ENDPOINTS.values()} | {'ibkrcampus.com'}
 
 
 def utcnow():
@@ -95,7 +97,7 @@ def fetch(url):
     opener = build_opener(TrustedRedirect)
     for attempt in range(2):
         try:
-            req = Request(url, headers={"User-Agent": "USD-EUR-Research/0.1 (public economic data)", "Accept-Encoding": "identity"})
+            req = Request(url, headers={"User-Agent": "USD-EUR-Research/0.4 (public economic data)", "Accept-Encoding": "identity"})
             with opener.open(req, timeout=20) as response:
                 body = response.read(4_000_001)
                 if len(body) > 4_000_000:
@@ -119,6 +121,7 @@ def collect(now, getter=fetch, progress=print):
         "cpi": lambda b: parse_cpi(b,now.date()),
         "fed_news": lambda b: parse_news(b,"Federal Reserve",now),
         "ecb_news": lambda b: parse_news(b,"ECB",now),
+        "ibkr_news": lambda b: parse_news(b,IBKR_PUBLISHER,now),
     }
     for key, url in ENDPOINTS.items():
         if key == "cpi":
@@ -148,8 +151,11 @@ def collect(now, getter=fetch, progress=print):
         errors["inflation"] = str(exc)
     report = analyze(parsed.get("fx",[]), rates, now, errors)
     report.update(source_mode="PUBLIC_DATA", inflation=inflation, sources=sources,
-                  news=sorted(parsed.get("fed_news",[])+parsed.get("ecb_news",[]),key=lambda r:r["published_at"],reverse=True))
+                  news=sorted(parsed.get("fed_news",[])+parsed.get("ecb_news",[])+parsed.get("ibkr_news",[]),key=lambda r:r["published_at"],reverse=True))
     report["recent_policy_release"] = any(x["recent_policy_release"] for x in report["news"])
+    report['news_context'] = assess_news(report['news'], now, [k for k in errors if k.endswith('_news')])
+    report['combined_outlooks'] = combine_outlooks(report['outlooks'], report['news_context'])
+    report['app_version'] = '0.4.0'
     return report
 
 
@@ -173,7 +179,7 @@ def save(output, report):
     atomic_text(output/"report.html",render_report(report))
     # Explicit analysis-only schema, not an order ticket or stock-bot candidate.
     write_json(output/"fx_signal.json",{k:report.get(k) for k in
-               ("mode","pair","unit","generated_at","reference_date","status","source_mode","model_version","outlooks")})
+               ("mode","pair","unit","generated_at","reference_date","status","source_mode","model_version","outlooks","combined_outlooks","news_context")})
 
 
 def run_live(root, getter=fetch, now=None, progress=print):

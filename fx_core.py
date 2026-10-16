@@ -114,30 +114,11 @@ def safe_link(link, hosts):
 
 
 def parse_news(body, publisher, now):
-    if b"<!DOCTYPE" in body.upper() or b"<!ENTITY" in body.upper():
-        raise DataError("Unexpected XML entity declarations.")
-    root = ET.fromstring(body)
-    output, seen = [], set()
-    hosts = {"www.ecb.europa.eu", "www.federalreserve.gov"}
-    for item in root.findall(".//item"):
-        title = re.sub(r"\s+", " ", unescape(re.sub(r"<[^>]*>", "", item.findtext("title", "")))).strip()
-        link = safe_link(item.findtext("link", "").strip(), hosts)
-        try:
-            when = parsedate_to_datetime(item.findtext("pubDate", ""))
-            if when.tzinfo is None:
-                continue
-            when = when.astimezone(timezone.utc)
-        except (TypeError, ValueError):
-            continue
-        age = (now-when).total_seconds()
-        if not title or not link or link in seen or not 0 <= age <= 30*86400:
-            continue
-        seen.add(link)
-        relevant = bool(re.search(r"monetary policy|FOMC|interest rate|inflation|meeting of|discount rate|economic outlook", title, re.I))
-        output.append({"publisher": publisher, "title": title[:280], "url": link,
-                       "published_at": when.isoformat(), "policy_related_title": relevant,
-                       "recent_policy_release": relevant and age <= 48*3600})
-    return sorted(output, key=lambda r: r["published_at"], reverse=True)[:8]
+    from fx_news import parse_feed, NewsError
+    try:
+        return parse_feed(body, publisher, now)
+    except NewsError as exc:
+        raise DataError(str(exc)) from exc
 
 
 def fresh(rows, today, days, label):
